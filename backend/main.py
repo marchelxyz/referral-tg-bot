@@ -16,15 +16,16 @@ logging.basicConfig(level=logging.INFO)
 load_dotenv()
 
 # --- Настройка базы данных (SQLAlchemy) ---
-# Получаем строку подключения из переменных окружения
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("Необходимо указать DATABASE_URL в переменных окружения")
 
-# Создаем асинхронный "движок" для подключения к БД
-engine = create_async_engine(DATABASE_URL, echo=True)
-# Создаем фабрику сессий для асинхронной работы с БД
-async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
+# Явно указываем SQLAlchemy, что нужно использовать асинхронный драйвер asyncpg
+# Мы просто заменяем "postgresql://" на "postgresql+asyncpg://"
+ASYNC_DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+
+# Создаем асинхронный "движок" для подключения к БД, используя новый URL
+engine = create_async_engine(ASYNC_DATABASE_URL, echo=True)
 
 
 # Определяем базовый класс для наших моделей (таблиц)
