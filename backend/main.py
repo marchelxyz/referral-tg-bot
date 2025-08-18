@@ -6,9 +6,11 @@ from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 from dotenv import load_dotenv
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.utils.web_app import WebAppInfo
-
+from aiogram.types import (
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    WebAppInfo
+)
 
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
