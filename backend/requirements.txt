@@ -1,3 +1,5 @@
 aiogram==3.7.0
 python-dotenv==1.0.1
 # Позже мы добавим сюда библиотеки для работы с базой данных
+sqlalchemy[asyncio]
+asyncpg
