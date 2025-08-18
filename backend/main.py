@@ -55,7 +55,7 @@ async def handle_start(message: Message):
     Обработчик команды /start. Регистрирует нового пользователя, если его еще нет.
     """
     # Открываем асинхронную сессию для работы с базой данных
-    async with async_session_maker() as session:
+async with async_sessionmaker() as session:
         # Ищем пользователя в базе по его telegram_id
         result = await session.execute(select(User).where(User.telegram_id == message.from_user.id))
         user = result.scalar_one_or_none()
