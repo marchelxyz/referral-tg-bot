@@ -6,6 +6,9 @@ from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 from dotenv import load_dotenv
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.utils.web_app import WebAppInfo
+
 
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -56,15 +59,22 @@ dp = Dispatcher()
 @dp.message(CommandStart())
 async def handle_start(message: Message):
     """
-    Handles the /start command. Registers a new user if they don't exist yet.
+    Обрабатывает команду /start. Регистрирует нового пользователя и показывает кнопку Mini App.
     """
-    # Open an async session to work with the database
+    # Создаем кнопку, которая будет открывать веб-приложение
+    # УКАЖИТЕ ЗДЕСЬ URL ВАШЕГО БУДУЩЕГО ПРИЛОЖЕНИЯ НА VERCEL
+    webapp_url = "https://marchelxyz.github.io/referral-tg-bot/" # Временный URL-заглушка
+    
+    start_button = InlineKeyboardButton(
+        text="Открыть приложение", 
+        web_app=WebAppInfo(url=webapp_url)
+    )
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[[start_button]])
+
     async with async_sessionmaker() as session:
-        # Look for the user in the database by their telegram_id
         result = await session.execute(select(User).where(User.telegram_id == message.from_user.id))
         user = result.scalar_one_or_none()
 
-        # If the user is not found, create and save them
         if user is None:
             new_user = User(
                 telegram_id=message.from_user.id,
@@ -72,14 +82,12 @@ async def handle_start(message: Message):
             )
             session.add(new_user)
             await session.commit()
-            greeting_text = (f"👋 Hello, {new_user.full_name}!\n\n"
-                             "Welcome! You have been successfully registered.")
+            greeting_text = (f"👋 Привет, {new_user.full_name}!\n\n"
+                             "Добро пожаловать! Вы были успешно зарегистрированы.")
         else:
-            greeting_text = (f"👋 Welcome back, {user.full_name}!")
+            greeting_text = (f"👋 С возвращением, {user.full_name}!")
 
-    # TODO: Add a button to open the Mini App
-    await message.answer(greeting_text)
-
+    await message.answer(greeting_text, reply_markup=keyboard)
 
 # --- Main Functions for Startup ---
 async def create_db_tables():
