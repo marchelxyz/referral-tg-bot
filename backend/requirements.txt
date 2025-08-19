@@ -3,3 +3,4 @@ python-dotenv==1.0.1
 sqlalchemy[asyncio]
 asyncpg
 psycopg2-binary
+aiohttp
