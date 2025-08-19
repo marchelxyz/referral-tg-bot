@@ -65,7 +65,7 @@ async def handle_start(message: Message):
     """
     # Создаем кнопку, которая будет открывать веб-приложение
     # УКАЖИТЕ ЗДЕСЬ URL ВАШЕГО БУДУЩЕГО ПРИЛОЖЕНИЯ НА VERCEL
-    webapp_url = "https://marchelxyz.github.io/referral-tg-bot/" # Временный URL-заглушка
+    webapp_url = "https://referral-tg-bot.vercel.app/" # Временный URL-заглушка
     
     start_button = InlineKeyboardButton(
         text="Открыть приложение", 
