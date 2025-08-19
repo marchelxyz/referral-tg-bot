@@ -1,64 +1,64 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-// Получаем объект Telegram Web App
 const tg = window.Telegram.WebApp;
 
 function App() {
   const [deals, setDeals] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newClientName, setNewClientName] = useState(""); // Состояние для имени в форме
+  const [newClientName, setNewClientName] = useState("");
+  const [error, setError] = useState(""); // Состояние для текста ошибки
+  const [isSubmitting, setIsSubmitting] = useState(false); // Состояние для блокировки кнопки
 
-  // Функция для загрузки сделок с бэкенда
   const fetchDeals = () => {
+    // ... (код этой функции не изменился)
     setLoading(true);
     const apiUrl = process.env.REACT_APP_API_URL;
-    
-    fetch(`${apiUrl}/api/deals`, {
-      headers: {
-        // Отправляем данные авторизации, чтобы бэкенд знал, кто мы
-        'Authorization': `tma ${tg.initData}`
-      }
-    })
+    fetch(`${apiUrl}/api/deals`, { headers: { 'Authorization': `tma ${tg.initData}` } })
       .then(response => response.json())
-      .then(data => {
-        setDeals(data);
-        setLoading(false);
-      })
-      .catch(error => {
-        console.error("Ошибка при загрузке сделок:", error);
-        setLoading(false);
-      });
+      .then(data => { setDeals(data); setLoading(false); })
+      .catch(error => { console.error("Ошибка при загрузке сделок:", error); setLoading(false); });
   };
 
-  // Вызываем загрузку сделок один раз при старте
   useEffect(() => {
-    tg.ready(); // Сообщаем Telegram, что приложение готово
+    tg.ready();
     fetchDeals();
   }, []);
 
-  // Функция для создания новой сделки
   const handleCreateDeal = (e) => {
-    e.preventDefault(); // Предотвращаем стандартное поведение формы
-    if (!newClientName.trim()) return; // Не создаем сделку с пустым именем
+    e.preventDefault();
+    if (!newClientName.trim() || isSubmitting) return;
 
+    setIsSubmitting(true); // Блокируем кнопку
+    setError(""); // Сбрасываем старую ошибку
     const apiUrl = process.env.REACT_APP_API_URL;
 
     fetch(`${apiUrl}/api/deals`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `tma ${tg.initData}`
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `tma ${tg.initData}` },
       body: JSON.stringify({ client_name: newClientName })
     })
-    .then(response => response.json())
-    .then(newDeal => {
-      // Добавляем новую сделку в начало списка
-      setDeals(prevDeals => [newDeal, ...prevDeals]);
-      setNewClientName(""); // Очищаем поле ввода
+    .then(async response => {
+      if (!response.ok) {
+        // Если сервер ответил ошибкой, считываем ее текст
+        const errorText = await response.text();
+        throw new Error(errorText);
+      }
+      return response.json();
     })
-    .catch(error => console.error("Ошибка при создании сделки:", error));
+    .then(newDeal => {
+      setDeals(prevDeals => [newDeal, ...prevDeals]);
+      setNewClientName("");
+    })
+    .catch(error => {
+      // Показываем ошибку пользователю
+      setError(error.message);
+      console.error("Ошибка при создании сделки:", error);
+    })
+    .finally(() => {
+      // Разблокируем кнопку через секунду в любом случае
+      setTimeout(() => setIsSubmitting(false), 1000);
+    });
   };
 
   return (
@@ -71,9 +71,14 @@ function App() {
             value={newClientName}
             onChange={(e) => setNewClientName(e.target.value)}
             placeholder="Имя нового клиента"
+            disabled={isSubmitting} // Кнопка неактивна во время отправки
           />
-          <button type="submit">+ Добавить</button>
+          <button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Добавление...' : '+ Добавить'}
+          </button>
         </form>
+        {/* Отображение ошибки */}
+        {error && <p className="error-message">{error}</p>}
       </div>
 
       {loading ? (
