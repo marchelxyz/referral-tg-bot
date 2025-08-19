@@ -3,23 +3,24 @@ import logging
 import os
 import json
 from urllib.parse import parse_qs
+from datetime import datetime, timedelta # Импортируем время
 
 from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from dotenv import load_dotenv
 
-from sqlalchemy import String, BigInteger, select, ForeignKey
+from sqlalchemy import String, BigInteger, select, ForeignKey, func, DateTime # Импортируем func и DateTime
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from aiohttp import web
 
-# --- Настройка ---
+# --- Настройка (без изменений) ---
 logging.basicConfig(level=logging.INFO)
 load_dotenv()
 
-# --- Настройка Базы Данных ---
+# --- Настройка Базы Данных (без изменений) ---
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("Необходимо указать DATABASE_URL")
@@ -43,81 +44,87 @@ class Deal(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     client_name: Mapped[str] = mapped_column(String(150))
     status: Mapped[str] = mapped_column(String(50), default="Первичный контакт")
+    # НОВОЕ ПОЛЕ ДЛЯ ВРЕМЕНИ СОЗДАНИЯ
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     agent_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     agent: Mapped["User"] = relationship(back_populates="deals")
 
-# --- Настройка Бота ---
+# --- Настройка Бота (без изменений) ---
 bot = Bot(token=os.getenv("BOT_TOKEN"))
 dp = Dispatcher()
 
 # --- Логика API (Веб-сервер) ---
-
-async def get_user_from_auth_header(auth_header):
-    """ Проверяет заголовок авторизации и возвращает пользователя из БД """
-    if not auth_header or not auth_header.startswith('tma '):
-        return None
-    
-    # Извлекаем и парсим initData
+# Функция get_user_from_auth_header и middleware cors_middleware остаются без изменений
+async def get_user_from_auth_header(request):
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('tma '): return None
     init_data = auth_header.split(' ')[1]
     parsed_data = parse_qs(init_data)
     user_data_str = parsed_data.get('user', [None])[0]
-    
-    if not user_data_str:
-        return None
-
+    if not user_data_str: return None
     user_data = json.loads(user_data_str)
     telegram_id = user_data.get('id')
-
     async with async_sessionmaker() as session:
         result = await session.execute(select(User).where(User.telegram_id == telegram_id))
         return result.scalar_one_or_none()
 
 @web.middleware
 async def cors_middleware(request, handler):
-    """ Middleware для обработки CORS заголовков """
     if request.method == 'OPTIONS':
         response = web.Response()
     else:
         response = await handler(request)
-    
     response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
     return response
 
 async def get_deals(request):
-    """ Отдает сделки для текущего пользователя """
+    # Логика получения сделок остается без изменений
     user = await get_user_from_auth_header(request.headers.get('Authorization'))
-    if not user:
-        return web.Response(status=401, text="Unauthorized")
-
+    if not user: return web.Response(status=401, text="Unauthorized")
     async with async_sessionmaker() as session:
-        result = await session.execute(select(Deal).where(Deal.agent_id == user.id))
+        result = await session.execute(select(Deal).where(Deal.agent_id == user.id).order_by(Deal.created_at.desc()))
         deals = result.scalars().all()
         deals_data = [{"id": deal.id, "client_name": deal.client_name, "status": deal.status} for deal in deals]
         return web.json_response(deals_data)
 
 async def create_deal(request):
-    """ Создает новую сделку для текущего пользователя """
+    """ Создает новую сделку с ограничением в 1 минуту """
     user = await get_user_from_auth_header(request.headers.get('Authorization'))
     if not user:
         return web.Response(status=401, text="Unauthorized")
 
-    data = await request.json()
-    client_name = data.get('client_name')
-    if not client_name:
-        return web.Response(status=400, text="client_name is required")
-    
     async with async_sessionmaker() as session:
+        # НОВАЯ ЛОГИКА: ПРОВЕРКА ВРЕМЕНИ
+        # Находим последнюю сделку этого пользователя
+        result = await session.execute(
+            select(Deal)
+            .where(Deal.agent_id == user.id)
+            .order_by(Deal.created_at.desc())
+            .limit(1)
+        )
+        last_deal = result.scalar_one_or_none()
+
+        # Если последняя сделка есть и она была создана меньше минуты назад
+        if last_deal and datetime.utcnow() - last_deal.created_at < timedelta(minutes=1):
+            return web.Response(status=429, text="Вы можете добавлять только одну сделку в минуту.")
+
+        # Если проверки пройдены, создаем сделку
+        data = await request.json()
+        client_name = data.get('client_name')
+        if not client_name:
+            return web.Response(status=400, text="client_name is required")
+        
         new_deal = Deal(client_name=client_name, agent_id=user.id)
         session.add(new_deal)
         await session.commit()
-        await session.refresh(new_deal) # Чтобы получить id и другие поля
+        await session.refresh(new_deal)
         return web.json_response({"id": new_deal.id, "client_name": new_deal.client_name, "status": new_deal.status})
 
-# --- Обработчики команд Бота ---
-# handle_start остается без изменений
-
+# --- Обработчики Бота и Запуск (без изменений) ---
+# handle_start, create_db_tables, start_bot, start_api_server, main, if __name__ == "__main__":
+# остаются такими же, как в предыдущей версии.
 @dp.message(CommandStart())
 async def handle_start(message: Message):
     webapp_url = os.getenv("VERCEL_URL", "https.t.me")
@@ -135,8 +142,6 @@ async def handle_start(message: Message):
             greeting_text = f"👋 С возвращением, {user.full_name}!"
     await message.answer(greeting_text, reply_markup=keyboard)
 
-
-# --- Функции запуска ---
 async def create_db_tables():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -148,7 +153,7 @@ async def start_bot():
 async def start_api_server():
     app = web.Application(middlewares=[cors_middleware])
     app.router.add_get("/api/deals", get_deals)
-    app.router.add_post("/api/deals", create_deal) # Новый маршрут
+    app.router.add_post("/api/deals", create_deal)
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, '0.0.0.0', int(os.getenv('PORT', 8080)))
