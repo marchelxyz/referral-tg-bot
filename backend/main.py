@@ -63,9 +63,8 @@ async def handle_start(message: Message):
     """
     Обрабатывает команду /start. Регистрирует нового пользователя и показывает кнопку Mini App.
     """
-    # Создаем кнопку, которая будет открывать веб-приложение
-    # УКАЖИТЕ ЗДЕСЬ URL ВАШЕГО БУДУЩЕГО ПРИЛОЖЕНИЯ НА VERCEL
-    webapp_url = "https://referral-tg-bot.vercel.app/" # Временный URL-заглушка
+    # Создаем кнопку, которая будет открывать ваше реальное веб-приложение
+    webapp_url = "https://referral-tg-bot.vercel.app"
     
     start_button = InlineKeyboardButton(
         text="Открыть приложение", 
