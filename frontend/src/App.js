@@ -158,6 +158,12 @@ function App() {
           &larr; Назад к списку
         </button>
         <h1>{selectedDeal.client_name}</h1>
+    <div className="debug-output">
+  <h4>Сырые данные сделки:</h4>
+  <pre>
+    {JSON.stringify(selectedDeal, null, 2)}
+  </pre>
+</div>
       </div>
       <div className="deal-details">
         <p><strong>Текущий статус:</strong> {selectedDeal.status}</p>
