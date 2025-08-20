@@ -7,6 +7,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from dotenv import load_dotenv
 from sqlalchemy import String, BigInteger, select, ForeignKey, func, DateTime
+from sqlalchemy.dialects.postgresql import JSONB # <-- ДОБАВИТЬ ЭТУ СТРОКУ
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from aiohttp import web
