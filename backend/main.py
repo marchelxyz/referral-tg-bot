@@ -89,7 +89,7 @@ async def get_deals(request):
     async with async_sessionmaker() as session:
         result = await session.execute(select(Deal).where(Deal.agent_id == user.id).order_by(Deal.created_at.desc()))
         deals = result.scalars().all()
-        deals_data = [{"id": deal.id, "client_name": deal.client_name, "status": deal.status} for deal in deals]
+        deals_data = [{"id": deal.id, "client_name": deal.client_name, "status": deal.status, "checklist": deal.checklist} for deal in deals]
         return web.json_response(deals_data)
 
 async def create_deal(request):
@@ -103,7 +103,13 @@ async def create_deal(request):
         data = await request.json()
         client_name = data.get('client_name')
         if not client_name: return web.Response(status=400, text="client_name is required")
-        new_deal = Deal(client_name=client_name, agent_id=user.id)
+        # Получаем чек-лист для начального статуса
+        initial_checklist = DEAL_FUNNEL_CHECKLISTS.get("Первичный контакт", [])
+        new_deal = Deal(
+        client_name=client_name, 
+        agent_id=user.id, 
+        checklist=initial_checklist # <-- ДОБАВИТЬ ЭТО
+        )
         session.add(new_deal)
         await session.commit()
         await session.refresh(new_deal)
@@ -129,10 +135,46 @@ async def update_deal_status(request):
             return web.Response(status=404, text="Deal not found or you don't have permission")
         
         deal.status = new_status
+        # Обновляем чек-лист в соответствии с новым статусом
+        deal.checklist = DEAL_FUNNEL_CHECKLISTS.get(new_status, [])
         await session.commit()
         await session.refresh(deal)
         return web.json_response({"id": deal.id, "client_name": deal.client_name, "status": deal.status})
 
+async def toggle_checklist_item(request):
+    user = await get_user_from_auth_header(request)
+    if not user: return web.Response(status=401, text="Unauthorized")
+    
+    deal_id = int(request.match_info['id'])
+    data = await request.json()
+    item_text = data.get('text')
+
+    if not item_text:
+        return web.Response(status=400, text="Checklist item text is required")
+
+    async with async_sessionmaker() as session:
+        result = await session.execute(select(Deal).where(Deal.id == deal_id, Deal.agent_id == user.id))
+        deal = result.scalar_one_or_none()
+
+        if not deal or not deal.checklist:
+            return web.Response(status=404, text="Deal or checklist not found")
+
+        # Находим и обновляем нужный пункт в списке
+        new_checklist = []
+        item_found = False
+        for item in deal.checklist:
+            if item.get('text') == item_text:
+                item['completed'] = not item.get('completed', False)
+                item_found = True
+            new_checklist.append(item)
+        
+        if not item_found:
+             return web.Response(status=404, text="Checklist item not found")
+
+        deal.checklist = new_checklist
+        await session.commit()
+        await session.refresh(deal)
+        return web.json_response(deal.checklist)
 
 # --- Обработчики Бота и Запуск (без изменений, кроме добавления нового маршрута в API) ---
 @dp.message(CommandStart())
