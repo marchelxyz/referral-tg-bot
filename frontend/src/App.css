@@ -64,3 +64,22 @@ body {
   cursor: pointer;
   margin-top: 20px;
 }
+
+.checklist {
+  margin-top: 20px;
+  text-align: left;
+}
+.check-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.check-item input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin-right: 10px;
+}
+.check-item label.completed {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
