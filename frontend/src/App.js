@@ -65,7 +65,19 @@ function App() {
       <div className="App">
         <div className="header">
           <h1>Мои сделки</h1>
-          {/* Форма создания сделки остается здесь, но мы ее пока скроем для простоты */}
+    <form onSubmit={handleCreateDeal} className="deal-form">
+  <input
+    type="text"
+    value={newClientName}
+    onChange={(e) => setNewClientName(e.target.value)}
+    placeholder="Имя нового клиента"
+    disabled={isSubmitting}
+  />
+  <button type="submit" disabled={isSubmitting}>
+    {isSubmitting ? 'Добавление...' : '+ Добавить'}
+  </button>
+</form>
+{error && <p className="error-message">{error}</p>}
         </div>
         {loading ? (
           <p>Загрузка...</p>
