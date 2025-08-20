@@ -3,12 +3,20 @@ import './App.css';
 
 const tg = window.Telegram.WebApp;
 
+// Выносим воронку в константу для удобства
+const DEAL_STAGES = [
+  "Первичный контакт",
+  "Квалификация",
+  "Презентация решения",
+  "Обработка возражений",
+  "Договорённость",
+  "Сделка заключена",
+];
+
 function App() {
   const [deals, setDeals] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newClientName, setNewClientName] = useState("");
-  const [error, setError] = useState(""); // Состояние для текста ошибки
-  const [isSubmitting, setIsSubmitting] = useState(false); // Состояние для блокировки кнопки
+  const [selectedDeal, setSelectedDeal] = useState(null); // Состояние для выбранной сделки
 
   const fetchDeals = () => {
     // ... (код этой функции не изменился)
@@ -24,79 +32,77 @@ function App() {
     tg.ready();
     fetchDeals();
   }, []);
+  
+  // Функция для обновления статуса
+  const handleUpdateStatus = (dealToUpdate) => {
+    const currentStageIndex = DEAL_STAGES.indexOf(dealToUpdate.status);
+    const nextStage = DEAL_STAGES[currentStageIndex + 1];
 
-  const handleCreateDeal = (e) => {
-    e.preventDefault();
-    if (!newClientName.trim() || isSubmitting) return;
-
-    setIsSubmitting(true); // Блокируем кнопку
-    setError(""); // Сбрасываем старую ошибку
+    if (!nextStage) {
+      alert("Это последний этап!");
+      return;
+    }
+    
     const apiUrl = process.env.REACT_APP_API_URL;
-
-    fetch(`${apiUrl}/api/deals`, {
+    fetch(`${apiUrl}/api/deals/${dealToUpdate.id}/status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `tma ${tg.initData}` },
-      body: JSON.stringify({ client_name: newClientName })
+      body: JSON.stringify({ status: nextStage })
     })
-    .then(async response => {
-      if (!response.ok) {
-        // Если сервер ответил ошибкой, считываем ее текст
-        const errorText = await response.text();
-        throw new Error(errorText);
-      }
-      return response.json();
+    .then(response => response.json())
+    .then(updatedDeal => {
+      // Обновляем список сделок и возвращаемся к списку
+      fetchDeals();
+      setSelectedDeal(null);
     })
-    .then(newDeal => {
-      setDeals(prevDeals => [newDeal, ...prevDeals]);
-      setNewClientName("");
-    })
-    .catch(error => {
-      // Показываем ошибку пользователю
-      setError(error.message);
-      console.error("Ошибка при создании сделки:", error);
-    })
-    .finally(() => {
-      // Разблокируем кнопку через секунду в любом случае
-      setTimeout(() => setIsSubmitting(false), 1000);
-    });
+    .catch(error => console.error("Ошибка при обновлении статуса:", error));
   };
 
-  return (
-    <div className="App">
-      <div className="header">
-        <h1>Мои сделки</h1>
-        <form onSubmit={handleCreateDeal} className="deal-form">
-          <input
-            type="text"
-            value={newClientName}
-            onChange={(e) => setNewClientName(e.target.value)}
-            placeholder="Имя нового клиента"
-            disabled={isSubmitting} // Кнопка неактивна во время отправки
-          />
-          <button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Добавление...' : '+ Добавить'}
-          </button>
-        </form>
-        {/* Отображение ошибки */}
-        {error && <p className="error-message">{error}</p>}
-      </div>
 
-      {loading ? (
-        <p>Загрузка...</p>
-      ) : (
-        <div className="deals-list">
-          {deals.length > 0 ? (
-            deals.map(deal => (
-              <div key={deal.id} className="deal-card">
+  // Если сделка не выбрана, показываем список
+  if (!selectedDeal) {
+    return (
+      <div className="App">
+        <div className="header">
+          <h1>Мои сделки</h1>
+          {/* Форма создания сделки остается здесь, но мы ее пока скроем для простоты */}
+        </div>
+        {loading ? (
+          <p>Загрузка...</p>
+        ) : (
+          <div className="deals-list">
+            {deals.map(deal => (
+              <div key={deal.id} className="deal-card" onClick={() => setSelectedDeal(deal)}>
                 <h3>{deal.client_name}</h3>
                 <p>Статус: {deal.status}</p>
               </div>
-            ))
-          ) : (
-            <p>У вас пока нет сделок. Создайте первую!</p>
-          )}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Если сделка выбрана, показываем детальный вид
+  return (
+    <div className="App">
+      <div className="header">
+        <button onClick={() => setSelectedDeal(null)} className="back-button">
+          &larr; Назад к списку
+        </button>
+        <h1>{selectedDeal.client_name}</h1>
+      </div>
+      <div className="deal-details">
+        <p><strong>Текущий статус:</strong> {selectedDeal.status}</p>
+        <hr />
+        {/* TODO: Здесь будет чек-лист для текущего этапа */}
+        
+        {DEAL_STAGES.indexOf(selectedDeal.status) < DEAL_STAGES.length - 1 && (
+          <button onClick={() => handleUpdateStatus(selectedDeal)} className="cta-button">
+            Перевести на этап: {DEAL_STAGES[DEAL_STAGES.indexOf(selectedDeal.status) + 1]}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
