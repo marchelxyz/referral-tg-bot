@@ -12,6 +12,23 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from aiohttp import web
 
+# ШАБЛОНЫ ЧЕК-ЛИСТОВ ДЛЯ КАЖДОГО ЭТАПА
+DEAL_FUNNEL_CHECKLISTS = {
+    "Первичный контакт": [
+        {"text": "Проверить корректность анкеты", "completed": False},
+        {"text": "Отметить клиента как «Первичный контакт»", "completed": False}
+    ],
+    "Квалификация": [
+        {"text": "Цель клиента понятна?", "completed": False},
+        {"text": "Есть бюджет?", "completed": False},
+        {"text": "Готов ли к звонку/встрече?", "completed": False}
+    ],
+    "Презентация решения": [
+        {"text": "КП отправлено", "completed": False}
+    ]
+    # ... можно добавить другие этапы
+}
+
 # --- Настройка и Модели Базы Данных (без изменений) ---
 logging.basicConfig(level=logging.INFO)
 load_dotenv()
