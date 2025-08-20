@@ -17,7 +17,10 @@ function App() {
   const [deals, setDeals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDeal, setSelectedDeal] = useState(null); // Состояние для выбранной сделки
-
+  const [newClientName, setNewClientName] = useState(""); // Для поля ввода
+  const [error, setError] = useState(""); // Для текста ошибки
+  const [isSubmitting, setIsSubmitting] = useState(false); // Для блокировки кнопки
+  
   const fetchDeals = () => {
     // ... (код этой функции не изменился)
     setLoading(true);
@@ -32,6 +35,40 @@ function App() {
     tg.ready();
     fetchDeals();
   }, []);
+
+  // Вот функция, которая важна для формы создания сделки:
+  const handleCreateDeal = (e) => {
+    e.preventDefault();
+    if (!newClientName.trim() || isSubmitting) return;
+
+    setIsSubmitting(true);
+    setError("");
+    const apiUrl = process.env.REACT_APP_API_URL;
+
+    fetch(`${apiUrl}/api/deals`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `tma ${tg.initData}` },
+      body: JSON.stringify({ client_name: newClientName })
+    })
+    .then(async response => {
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText);
+      }
+      return response.json();
+    })
+    .then(newDeal => {
+      setDeals(prevDeals => [newDeal, ...prevDeals]);
+      setNewClientName("");
+    })
+    .catch(error => {
+      setError(error.message);
+      console.error("Ошибка при создании сделки:", error);
+    })
+    .finally(() => {
+      setTimeout(() => setIsSubmitting(false), 1000);
+    });
+  };
   
   // Функция для обновления статуса
   const handleUpdateStatus = (dealToUpdate) => {
