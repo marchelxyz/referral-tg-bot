@@ -162,7 +162,22 @@ function App() {
       <div className="deal-details">
         <p><strong>Текущий статус:</strong> {selectedDeal.status}</p>
         <hr />
-        {/* TODO: Здесь будет чек-лист для текущего этапа */}
+        <div className="checklist">
+  <h4>Чек-лист этапа:</h4>
+  {selectedDeal.checklist && selectedDeal.checklist.map((item, index) => (
+    <div key={index} className="check-item">
+      <input 
+        type="checkbox"
+        id={`item-${index}`}
+        checked={item.completed}
+        onChange={() => handleToggleChecklistItem(item.text)}
+      />
+      <label htmlFor={`item-${index}`} className={item.completed ? 'completed' : ''}>
+        {item.text}
+      </label>
+    </div>
+  ))}
+</div>
         
         {DEAL_STAGES.indexOf(selectedDeal.status) < DEAL_STAGES.length - 1 && (
           <button onClick={() => handleUpdateStatus(selectedDeal)} className="cta-button">
