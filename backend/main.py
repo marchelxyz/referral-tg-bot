@@ -35,6 +35,7 @@ class Deal(Base):
     client_name: Mapped[str] = mapped_column(String(150))
     status: Mapped[str] = mapped_column(String(50), default="Первичный контакт")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    checklist: Mapped[dict] = mapped_column(JSONB, nullable=True) # <-- ДОБАВИТЬ ЭТУ СТРОКУ
     agent_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     agent: Mapped["User"] = relationship(back_populates="deals")
 
