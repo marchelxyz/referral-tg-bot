@@ -72,6 +72,24 @@ function App() {
   
   // Функция для обновления статуса
   const handleUpdateStatus = (dealToUpdate) => {
+    const handleToggleChecklistItem = (itemText) => {
+    const apiUrl = process.env.REACT_APP_API_URL;
+    fetch(`${apiUrl}/api/deals/${selectedDeal.id}/checklist`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `tma ${tg.initData}` },
+      body: JSON.stringify({ text: itemText })
+    })
+    .then(response => response.json())
+    .then(updatedChecklist => {
+      // Обновляем состояние локально, чтобы интерфейс сразу отреагировал
+      const updatedDeal = { ...selectedDeal, checklist: updatedChecklist };
+      setSelectedDeal(updatedDeal);
+      
+      // Обновляем также и общий список сделок
+      setDeals(deals.map(d => d.id === updatedDeal.id ? updatedDeal : d));
+    })
+    .catch(error => console.error("Ошибка при обновлении пункта чек-листа:", error));
+  };
     const currentStageIndex = DEAL_STAGES.indexOf(dealToUpdate.status);
     const nextStage = DEAL_STAGES[currentStageIndex + 1];
 
