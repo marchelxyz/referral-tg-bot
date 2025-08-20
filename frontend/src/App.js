@@ -72,7 +72,7 @@ function App() {
   
   // Функция для обновления статуса
   const handleUpdateStatus = (dealToUpdate) => {
-    const handleToggleChecklistItem = (itemText) => {
+const handleToggleChecklistItem = (itemText) => {
     const apiUrl = process.env.REACT_APP_API_URL;
     fetch(`${apiUrl}/api/deals/${selectedDeal.id}/checklist`, {
       method: 'POST',
@@ -90,6 +90,7 @@ function App() {
     })
     .catch(error => console.error("Ошибка при обновлении пункта чек-листа:", error));
   };
+    
     const currentStageIndex = DEAL_STAGES.indexOf(dealToUpdate.status);
     const nextStage = DEAL_STAGES[currentStageIndex + 1];
 
