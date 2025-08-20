@@ -1,37 +1,26 @@
-import asyncio
-import logging
-import os
-import json
+# Все импорты остаются такими же, как в прошлый раз
+import asyncio, logging, os, json
 from urllib.parse import parse_qs
 from datetime import datetime, timedelta
-
 from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from dotenv import load_dotenv
-
 from sqlalchemy import String, BigInteger, select, ForeignKey, func, DateTime
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-
 from aiohttp import web
 
-# --- Настройка (без изменений) ---
+# --- Настройка и Модели Базы Данных (без изменений) ---
 logging.basicConfig(level=logging.INFO)
 load_dotenv()
-
-# --- Настройка Базы Данных (без изменений) ---
 DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise ValueError("Необходимо указать DATABASE_URL")
-
+if not DATABASE_URL: raise ValueError("Необходимо указать DATABASE_URL")
 ASYNC_DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 engine = create_async_engine(ASYNC_DATABASE_URL, echo=True)
 async_sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
 
-class Base(DeclarativeBase):
-    pass
-
+class Base(DeclarativeBase): pass
 class User(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -53,8 +42,6 @@ bot = Bot(token=os.getenv("BOT_TOKEN"))
 dp = Dispatcher()
 
 # --- Логика API (Веб-сервер) ---
-
-# Эта функция теперь получает ВЕСЬ request, а не просто заголовок
 async def get_user_from_auth_header(request):
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('tma '): return None
@@ -70,7 +57,6 @@ async def get_user_from_auth_header(request):
 
 @web.middleware
 async def cors_middleware(request, handler):
-    # ... (код без изменений)
     if request.method == 'OPTIONS': response = web.Response()
     else: response = await handler(request)
     response.headers['Access-Control-Allow-Origin'] = '*'
@@ -79,7 +65,6 @@ async def cors_middleware(request, handler):
     return response
 
 async def get_deals(request):
-    # ИСПРАВЛЕНИЕ ЗДЕСЬ: Передаем весь 'request'
     user = await get_user_from_auth_header(request)
     if not user: return web.Response(status=401, text="Unauthorized")
     async with async_sessionmaker() as session:
@@ -89,7 +74,6 @@ async def get_deals(request):
         return web.json_response(deals_data)
 
 async def create_deal(request):
-    # ИСПРАВЛЕНИЕ ЗДЕСЬ: Передаем весь 'request'
     user = await get_user_from_auth_header(request)
     if not user: return web.Response(status=401, text="Unauthorized")
     async with async_sessionmaker() as session:
@@ -106,7 +90,32 @@ async def create_deal(request):
         await session.refresh(new_deal)
         return web.json_response({"id": new_deal.id, "client_name": new_deal.client_name, "status": new_deal.status})
 
-# --- Обработчики Бота и Запуск (без изменений) ---
+# НОВАЯ ФУНКЦИЯ ДЛЯ ИЗМЕНЕНИЯ СТАТУСА
+async def update_deal_status(request):
+    user = await get_user_from_auth_header(request)
+    if not user: return web.Response(status=401, text="Unauthorized")
+    
+    deal_id = int(request.match_info['id'])
+    data = await request.json()
+    new_status = data.get('status')
+
+    if not new_status:
+        return web.Response(status=400, text="New status is required")
+
+    async with async_sessionmaker() as session:
+        result = await session.execute(select(Deal).where(Deal.id == deal_id, Deal.agent_id == user.id))
+        deal = result.scalar_one_or_none()
+
+        if not deal:
+            return web.Response(status=404, text="Deal not found or you don't have permission")
+        
+        deal.status = new_status
+        await session.commit()
+        await session.refresh(deal)
+        return web.json_response({"id": deal.id, "client_name": deal.client_name, "status": deal.status})
+
+
+# --- Обработчики Бота и Запуск (без изменений, кроме добавления нового маршрута в API) ---
 @dp.message(CommandStart())
 async def handle_start(message: Message):
     # ... (код без изменений)
@@ -137,6 +146,8 @@ async def start_api_server():
     app = web.Application(middlewares=[cors_middleware])
     app.router.add_get("/api/deals", get_deals)
     app.router.add_post("/api/deals", create_deal)
+    # НОВЫЙ МАРШРУТ ДЛЯ ОБНОВЛЕНИЯ СТАТУСА
+    app.router.add_post("/api/deals/{id}/status", update_deal_status)
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, '0.0.0.0', int(os.getenv('PORT', 8080)))
