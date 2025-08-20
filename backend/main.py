@@ -207,6 +207,7 @@ async def start_api_server():
     app = web.Application(middlewares=[cors_middleware])
     app.router.add_get("/api/deals", get_deals)
     app.router.add_post("/api/deals", create_deal)
+    app.router.add_post("/api/deals/{id}/checklist", toggle_checklist_item)
     # НОВЫЙ МАРШРУТ ДЛЯ ОБНОВЛЕНИЯ СТАТУСА
     app.router.add_post("/api/deals/{id}/status", update_deal_status)
     runner = web.AppRunner(app)
