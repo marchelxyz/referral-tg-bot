@@ -76,12 +76,25 @@ async def get_user_from_auth_header(request):
 
 @web.middleware
 async def cors_middleware(request, handler):
-    if request.method == 'OPTIONS': response = web.Response()
-    else: response = await handler(request)
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
-    return response
+    # Обрабатываем предварительный OPTIONS запрос от браузера
+    if request.method == "OPTIONS":
+        response = web.Response(status=200) # Отвечаем успехом
+        # Даем "разрешения" на будущий запрос
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
+        return response
+
+    # Обрабатываем основной запрос (GET, POST и т.д.)
+    try:
+        response = await handler(request)
+        # Добавляем заголовок ко всем успешным ответам
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    except web.HTTPException as ex:
+        # Если произошла ошибка (например, 404), добавляем заголовок и к ней
+        ex.headers['Access-Control-Allow-Origin'] = '*'
+        raise ex
 
 async def get_deals(request):
     user = await get_user_from_auth_header(request)
